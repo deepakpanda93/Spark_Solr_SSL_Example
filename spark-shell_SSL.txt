@@ -1,0 +1,97 @@
+$ export SPARK_OPTS="-Djavax.net.ssl.trustStore=./cm-auto-global_truststore.jks -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD} -Djava.security.auth.login.config=./solr_jaas.conf"
+
+$ spark-shell --deploy-mode client --jars spark-solr-3.9.0.7.1.7.1000-142-shaded.jar --files cm-auto-global_truststore.jks,./solr_jaas.conf#solr_jaas.conf,dpanda.keytab#dpanda.keytab --conf "spark.executor.extraJavaOptions=-Djava.security.auth.login.config=./solr_jaas.conf \
+> -DsolrJaasAuthConfig=./solr_jaas.conf \
+> -Djavax.net.ssl.trustStore=./cm-auto-global_truststore.jks \
+> -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD} -Djavax.security.auth.useSubjectCredsOnly=false" --driver-java-options="-Djava.security.auth.login.config=./solr_jaas.conf \
+> -DsolrJaasAuthConfig=./solr_jaas.conf \
+> -Djavax.net.ssl.trustStore=./cm-auto-global_truststore.jks \
+> -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD} -Djavax.security.auth.useSubjectCredsOnly=false" -DsolrJaasAuthConfig=solr_jaas.conf
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+22/06/16 12:13:05 WARN conf.HiveConf: HiveConf of name hive.masking.algo does not exist
+22/06/16 12:13:07 WARN zookeeper.Login: TGT renewal thread has been interrupted and will exit.
+22/06/16 12:13:27 WARN cluster.YarnSchedulerBackend$YarnSchedulerEndpoint: Attempted to request executors before the AM has registered!
+Spark context Web UI available at http://node2.example.com:4040
+Spark context available as 'sc' (master = yarn, app id = application_xxxxxxxxxxx_0012).
+Spark session available as 'spark'.
+Welcome to
+      ____              __
+     / __/__  ___ _____/ /__
+    _\ \/ _ \/ _ `/ __/  '_/
+   /___/ .__/\_,_/_/ /_/\_\   version 2.4.7.7.1.7.1000-142
+      /_/
+
+Using Scala version 2.11.12 (OpenJDK 64-Bit Server VM, Java 1.8.0_232)
+Type in expressions to have them evaluated.
+Type :help for more information.
+
+scala> val options = Map("collection" -> "test", "zkhost" -> "node1.example.com:2181/solr")
+options: scala.collection.immutable.Map[String,String] = Map(collection -> test, zkhost -> node1.example.com:2181/solr)
+
+scala> val solrDF = spark.read.format("solr").options(options).load
+solrDF: org.apache.spark.sql.DataFrame = [id: string, name: string]
+
+scala> solrDF.printSchema()
+root
+ |-- id: string (nullable = false)
+ |-- name: string (nullable = true)
+
+
+scala> solrDF.show(false)
++---+--------+
+|id |name    |
++---+--------+
+|102|"James" |
+|101|"Deepak"|
+|103|"John"  |
++---+--------+
+
+
+scala> val columns = Seq("id","name")
+columns: Seq[String] = List(id, name)
+
+scala> val data = Seq((104, "Clark"), (105, "Liang"), (106, "Aditya"))
+data: Seq[(Int, String)] = List((104,Clark), (105,Liang), (106,Aditya))
+
+scala> val employeeRDD = spark.sparkContext.parallelize(data)
+employeeRDD: org.apache.spark.rdd.RDD[(Int, String)] = ParallelCollectionRDD[7] at parallelize at <console>:25
+
+scala> val employeeDF = spark.createDataFrame(employeeRDD).toDF(columns:_*)
+employeeDF: org.apache.spark.sql.DataFrame = [id: int, name: string]
+
+scala> employeeDF.write.format("solr").options(options).save
+
+scala> 22/06/16 12:19:03 WARN sql.CommandsHarvester$: Missing unknown leaf node: ExternalRDD [obj#13]
+
+22/06/16 12:19:03 WARN sql.CommandsHarvester$: Missing output entities: SaveIntoDataSourceCommand solr.DefaultSource@32c3f813, Map(collection -> test, zkhost -> node1.example.com:2181/solr), ErrorIfExists
+   +- Project [_1#14 AS id#18, _2#15 AS name#19]
+      +- SerializeFromObject [assertnotnull(assertnotnull(input[0, scala.Tuple2, true]))._1 AS _1#14, staticinvoke(class org.apache.spark.unsafe.types.UTF8String, StringType, fromString, assertnotnull(assertnotnull(input[0, scala.Tuple2, true]))._2, true, false) AS _2#15]
+         +- ExternalRDD [obj#13]
+
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'key.deserializer' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'value.deserializer' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'max.poll.records' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'zookeeper.connection.timeout.ms' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'zookeeper.session.timeout.ms' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'enable.auto.commit' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'zookeeper.connect' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'zookeeper.sync.time.ms' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'session.timeout.ms' was supplied but isn't a known config.
+22/06/16 12:19:03 WARN producer.ProducerConfig: The configuration 'auto.offset.reset' was supplied but isn't a known config.
+
+
+scala> val resultDF = spark.read.format("solr").options(options).load
+resultDF: org.apache.spark.sql.DataFrame = [id: string, name: string]
+
+scala> resultDF.show(false)
++---+--------+
+|id |name    |
++---+--------+
+|102|"James" |
+|104|"Clark" |
+|105|"Liang" |
+|106|"Aditya"|
+|101|"Deepak"|
+|103|"John"  |
++---+--------+
